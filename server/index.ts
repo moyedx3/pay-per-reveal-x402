@@ -22,34 +22,88 @@ const app = new Hono();
 
 // Enable CORS for frontend
 app.use("/*", cors({
-  origin: ["http://localhost:5173", "http://localhost:3000"],
+  origin: [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+  ],
   credentials: true,
 }));
 
-// Simple in-memory storage for sessions (use Redis/DB in production)
-interface Session {
+// Article data structure
+interface ArticleWord {
   id: string;
-  createdAt: Date;
-  expiresAt: Date;
-  type: "24hour" | "onetime";
-  used?: boolean;
+  text: string;
+  isBlurred: boolean;
 }
 
-const sessions = new Map<string, Session>();
+interface Article {
+  id: string;
+  title: string;
+  content: ArticleWord[];
+}
 
-// Configure x402 payment middleware with two payment options
+// Hardcoded article for MVP
+const article: Article = {
+  id: "article-1",
+  title: "The Future of Micropayments on the Web",
+  content: [
+    { id: "w1", text: "The", isBlurred: false },
+    { id: "w2", text: "internet", isBlurred: false },
+    { id: "w3", text: "has", isBlurred: false },
+    { id: "w4", text: "long", isBlurred: false },
+    { id: "w5", text: "struggled", isBlurred: false },
+    { id: "w6", text: "with", isBlurred: false },
+    { id: "w7", text: "monetization.", isBlurred: true }, // Blurred word 1
+    { id: "w8", text: "Traditional", isBlurred: false },
+    { id: "w9", text: "payment", isBlurred: false },
+    { id: "w10", text: "systems", isBlurred: false },
+    { id: "w11", text: "impose", isBlurred: false },
+    { id: "w12", text: "high", isBlurred: false },
+    { id: "w13", text: "fees", isBlurred: false },
+    { id: "w14", text: "and", isBlurred: false },
+    { id: "w15", text: "complex", isBlurred: false },
+    { id: "w16", text: "integrations,", isBlurred: false },
+    { id: "w17", text: "making", isBlurred: false },
+    { id: "w18", text: "small", isBlurred: false },
+    { id: "w19", text: "payments", isBlurred: false },
+    { id: "w20", text: "impractical.", isBlurred: false },
+    { id: "w21", text: "Enter", isBlurred: false },
+    { id: "w22", text: "blockchain-based", isBlurred: true }, // Blurred word 2
+    { id: "w23", text: "payment", isBlurred: false },
+    { id: "w24", text: "protocols", isBlurred: false },
+    { id: "w25", text: "like", isBlurred: false },
+    { id: "w26", text: "x402,", isBlurred: false },
+    { id: "w27", text: "which", isBlurred: false },
+    { id: "w28", text: "enable", isBlurred: false },
+    { id: "w29", text: "frictionless", isBlurred: false },
+    { id: "w30", text: "micropayments", isBlurred: false },
+    { id: "w31", text: "with", isBlurred: false },
+    { id: "w32", text: "no", isBlurred: false },
+    { id: "w33", text: "fees", isBlurred: false },
+    { id: "w34", text: "and", isBlurred: false },
+    { id: "w35", text: "instant", isBlurred: false },
+    { id: "w36", text: "settlement.", isBlurred: false },
+  ],
+};
+
+// Track revealed words per user (in production, use proper user identification)
+// For MVP, we'll track by wallet address
+const revealedWords = new Map<string, Set<string>>(); // Map<walletAddress, Set<wordId>>
+
+// Configure x402 payment middleware for word reveals
+// Note: x402 doesn't support dynamic routes, so we need individual endpoints for each word
 app.use(
   paymentMiddleware(
     payTo,
     {
-      // 24-hour session access
-      "/api/pay/session": {
-        price: "$1.00",
+      "/api/pay/reveal/w7": {
+        price: "$0.010",
         network,
       },
-      // One-time access/payment
-      "/api/pay/onetime": {
-        price: "$0.10",
+      "/api/pay/reveal/w22": {
+        price: "$0.010",
         network,
       },
     },
@@ -63,7 +117,7 @@ app.use(
 app.get("/api/health", (c) => {
   return c.json({
     status: "ok",
-    message: "Server is running",
+    message: "Pay-per-reveal article server running",
     config: {
       network,
       payTo,
@@ -72,158 +126,94 @@ app.get("/api/health", (c) => {
   });
 });
 
-// Free endpoint - get payment options
-app.get("/api/payment-options", (c) => {
-  return c.json({
-    options: [
-      {
-        name: "24-Hour Access",
-        endpoint: "/api/pay/session",
-        price: "$1.00",
-        description: "Get a session ID for 24 hours of unlimited access",
-      },
-      {
-        name: "One-Time Access",
-        endpoint: "/api/pay/onetime",
-        price: "$0.10",
-        description: "Single use payment for immediate access",
-      },
-    ],
-  });
-});
-
-// Paid endpoint - 24-hour session access ($1.00)
-app.post("/api/pay/session", (c) => {
-  const sessionId = uuidv4();
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+// Free endpoint - get article with blur info (but not the actual words)
+app.get("/api/article", (c) => {
+  const walletAddress = c.req.header("X-Wallet-Address");
   
-  const session: Session = {
-    id: sessionId,
-    createdAt: now,
-    expiresAt,
-    type: "24hour",
-  };
-
-  sessions.set(sessionId, session);
-
-  return c.json({
-    success: true,
-    sessionId,
-    message: "24-hour access granted!",
-    session: {
-      id: sessionId,
-      type: "24hour",
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      validFor: "24 hours",
-    },
-  });
-});
-
-// Paid endpoint - one-time access/payment ($0.10)
-app.post("/api/pay/onetime", async (c) => {
-  const sessionId = uuidv4();
-  const now = new Date();
+  // Get user's revealed words
+  const userRevealed = walletAddress ? revealedWords.get(walletAddress.toLowerCase()) || new Set() : new Set();
   
-  const session: Session = {
-    id: sessionId,
-    createdAt: now,
-    expiresAt: new Date(now.getTime() + 5 * 60 * 1000), // 5 minutes to use
-    type: "onetime",
-    used: false,
-  };
-
-  sessions.set(sessionId, session);
+  // Return article with words replaced by blur placeholders for unrevealed blurred words
+  const maskedContent = article.content.map(word => {
+    if (word.isBlurred && !userRevealed.has(word.id)) {
+      return {
+        id: word.id,
+        text: "█████", // Placeholder for blurred text
+        isBlurred: true,
+        isRevealed: false,
+      };
+    }
+    return {
+      id: word.id,
+      text: word.text,
+      isBlurred: word.isBlurred,
+      isRevealed: word.isBlurred ? userRevealed.has(word.id) : false,
+    };
+  });
 
   return c.json({
+    id: article.id,
+    title: article.title,
+    content: maskedContent,
+    pricePerWord: "$0.10",
+  });
+});
+
+// Helper function to handle word reveal
+const handleWordReveal = (wordId: string, walletAddress: string | undefined) => {
+  // Find the word in the article
+  const word = article.content.find(w => w.id === wordId);
+
+  if (!word) {
+    return { success: false, error: "Word not found", status: 404 };
+  }
+
+  if (!word.isBlurred) {
+    return { success: false, error: "This word is not blurred", status: 400 };
+  }
+
+  // Track that this user has revealed this word
+  if (walletAddress) {
+    const userAddress = walletAddress.toLowerCase();
+    if (!revealedWords.has(userAddress)) {
+      revealedWords.set(userAddress, new Set());
+    }
+    revealedWords.get(userAddress)!.add(wordId);
+  }
+
+  return {
     success: true,
-    sessionId,
-    message: "One-time access granted!",
-    access: {
-      id: sessionId,
-      type: "onetime",
-      createdAt: now.toISOString(),
-      validFor: "5 minutes (single use)",
-    },
-  });
+    wordId,
+    text: word.text,
+    message: `Word revealed: "${word.text}"`,
+    status: 200,
+  };
+};
+
+// Paid endpoints - reveal specific words ($0.10 each)
+app.post("/api/pay/reveal/w7", (c) => {
+  const walletAddress = c.req.header("X-Wallet-Address");
+  const result = handleWordReveal("w7", walletAddress);
+  return c.json(result, result.status as any);
 });
 
-// Free endpoint - validate session
-app.get("/api/session/:sessionId", (c) => {
-  const sessionId = c.req.param("sessionId");
-  const session = sessions.get(sessionId);
-
-  if (!session) {
-    return c.json({ valid: false, error: "Session not found" }, 404);
-  }
-
-  const now = new Date();
-  const isExpired = now > session.expiresAt;
-  const isUsed = session.type === "onetime" && session.used;
-
-  if (isExpired || isUsed) {
-    return c.json({ 
-      valid: false, 
-      error: isExpired ? "Session expired" : "One-time access already used",
-      session: {
-        id: session.id,
-        type: session.type,
-        createdAt: session.createdAt.toISOString(),
-        expiresAt: session.expiresAt.toISOString(),
-        used: session.used,
-      }
-    });
-  }
-
-  // Mark one-time sessions as used
-  if (session.type === "onetime") {
-    session.used = true;
-    sessions.set(sessionId, session);
-  }
-
-  return c.json({
-    valid: true,
-    session: {
-      id: session.id,
-      type: session.type,
-      createdAt: session.createdAt.toISOString(),
-      expiresAt: session.expiresAt.toISOString(),
-      remainingTime: session.expiresAt.getTime() - now.getTime(),
-    },
-  });
-});
-
-// Free endpoint - list active sessions (for demo purposes)
-app.get("/api/sessions", (c) => {
-  const activeSessions = Array.from(sessions.values())
-    .filter(session => {
-      const isExpired = new Date() > session.expiresAt;
-      const isUsed = session.type === "onetime" && session.used;
-      return !isExpired && !isUsed;
-    })
-    .map(session => ({
-      id: session.id,
-      type: session.type,
-      createdAt: session.createdAt.toISOString(),
-      expiresAt: session.expiresAt.toISOString(),
-    }));
-
-  return c.json({ sessions: activeSessions });
+app.post("/api/pay/reveal/w22", (c) => {
+  const walletAddress = c.req.header("X-Wallet-Address");
+  const result = handleWordReveal("w22", walletAddress);
+  return c.json(result, result.status as any);
 });
 
 console.log(`
-🚀 x402 Payment Template Server
+🚀 Pay-Per-Reveal Article Server
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💰 Accepting payments to: ${payTo}
 🔗 Network: ${network}
 🌐 Port: ${port}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 Payment Options:
-   - 24-Hour Session: $1.00
-   - One-Time Access: $0.10
+📄 Article: "${article.title}"
+💸 Price per word reveal: $0.10
+🔒 Blurred words: ${article.content.filter(w => w.isBlurred).length}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🛠️  This is a template! Customize it for your app.
 📚 Learn more: https://x402.org
 💬 Get help: https://discord.gg/invite/cdp
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
