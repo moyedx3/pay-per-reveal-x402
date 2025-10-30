@@ -17,6 +17,7 @@ A web app where readers pay tiny amounts to reveal blurred words in articles. Bu
 - ✅ **Choose any words to blur** - just list them
 - ✅ **Set your own price** per word reveal
 - ✅ **Pay once, reveal all** - revealing one instance reveals ALL instances of that word
+- ✅ **Full internationalization** - supports Korean, Japanese, Chinese, and all languages
 - ✅ Instant payment via browser wallet
 - ✅ Persistent reveals (once paid, stays revealed)
 - ✅ Smart word matching (handles punctuation & case)

@@ -79,14 +79,15 @@ function loadArticleFromConfig(): Article {
       
       // Check if this word (or word without punctuation) should be blurred
       const wordLower = word.toLowerCase();
-      const wordNoPunct = word.replace(/[.,!?;:'"()]/g, "").toLowerCase();
+      // Remove English and Korean/CJK punctuation
+      const wordNoPunct = word.replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "").toLowerCase();
       
       const isBlurred = config.article.blurredWords.some(blurWord => {
         const blurLower = blurWord.toLowerCase();
         return wordLower === blurLower || 
                wordNoPunct === blurLower ||
                wordLower.startsWith(blurLower) ||
-               wordNoPunct === blurLower.replace(/[.,!?;:'"()]/g, "");
+               wordNoPunct === blurLower.replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
       });
 
       return {
@@ -161,7 +162,7 @@ app.get("/api/article", (c) => {
   // Return article with words replaced by blur placeholders for unrevealed blurred words
   const maskedContent = article.content.map(word => {
     // Check if this word text has been revealed (normalize for comparison)
-    const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()]/g, "");
+    const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
     const isWordRevealed = userRevealed.has(wordTextNormalized);
     
     if (word.isBlurred && !isWordRevealed) {
@@ -210,14 +211,14 @@ const handleWordReveal = (wordId: string, walletAddress: string | undefined) => 
     }
     
     // Store normalized word text (lowercase, no punctuation)
-    const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()]/g, "");
+    const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
     revealedWords.get(userAddress)!.add(wordTextNormalized);
   }
 
   // Count how many instances of this word will be revealed
-  const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()]/g, "");
+  const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
   const totalInstances = article.content.filter(w => {
-    const wNormalized = w.text.toLowerCase().replace(/[.,!?;:'"()]/g, "");
+    const wNormalized = w.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
     return wNormalized === wordTextNormalized && w.isBlurred;
   }).length;
 

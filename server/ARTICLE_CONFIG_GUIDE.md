@@ -116,6 +116,24 @@ Price to reveal each blurred word. Must be in format `"$0.XXX"`.
 }
 ```
 
+### Korean Article Example
+
+```json
+{
+  "article": {
+    "id": "korean-blockchain",
+    "title": "블록체인과 웹3의 미래",
+    "content": "블록체인 기술은 인터넷의 새로운 시대를 열고 있습니다. 탈중앙화된 시스템을 통해 사용자들은 더 많은 통제권을 가지게 됩니다. 특히 암호화폐와 NFT는 디지털 자산의 소유권을 혁신적으로 변화시켰습니다.",
+    "blurredWords": [
+      "블록체인",
+      "암호화폐",
+      "NFT"
+    ],
+    "pricePerWord": "$0.010"
+  }
+}
+```
+
 ## How to Apply Changes
 
 1. Edit `server/article-config.json`
@@ -156,6 +174,8 @@ This makes sense for:
 **Note:** The matching is smart:
 - "Adam" matches "Adam", "adam", "Adam.", "Adam,", etc.
 - Case and punctuation are ignored
+- Works with Korean, Japanese, Chinese and all Unicode text
+- Korean punctuation (。、！？etc.) is handled correctly
 
 ## Tips for Choosing Words to Blur
 
@@ -192,6 +212,30 @@ This makes sense for:
 - All strings need quotes
 - Arrays need brackets `[]`
 - Use a JSON validator online if unsure
+
+## International Language Support
+
+The app supports **all languages** including:
+- 🇰🇷 Korean (한글)
+- 🇯🇵 Japanese (日本語)
+- 🇨🇳 Chinese (中文)
+- 🇪🇸 Spanish, French, German, etc.
+- Any Unicode text
+
+**Features:**
+- Full Unicode support in article text
+- Korean/CJK punctuation handled correctly (。、！？etc.)
+- Word matching works across all languages
+- All CSS and animations work with any language
+
+**Example Korean config:** See `article-config-korean.json`
+
+**To test Korean:**
+```bash
+cd server
+cp article-config-korean.json article-config.json
+# Restart server
+```
 
 ## Advanced: Multiple Articles (Future)
 
