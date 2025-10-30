@@ -1,0 +1,13 @@
+{
+  "article": {
+    "id": "article-1",
+    "title": "Secret of Adam",
+    "content": "My name is Adam and I am a software engineer. Adam is a nice guy but the real secret is that he is 167cm tall.",
+    "blurredWords": [
+      "Adam",
+      "167cm"
+    ],
+    "pricePerWord": "$0.011"
+  }
+}
+

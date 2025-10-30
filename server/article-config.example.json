@@ -1,0 +1,15 @@
+{
+  "article": {
+    "id": "recipe-example",
+    "title": "The Ultimate Chocolate Chip Cookie Recipe",
+    "content": "The secret to perfect chocolate chip cookies lies in three key ingredients: using brown sugar instead of white sugar creates a chewy texture, adding vanilla extract enhances the overall flavor, and the magic temperature of 375 degrees ensures they're crispy outside but gooey inside. Mix your butter and sugars first, then add eggs one at a time. The real game-changer is letting the dough rest for 24 hours in the refrigerator before baking.",
+    "blurredWords": [
+      "brown sugar",
+      "vanilla extract",
+      "375 degrees",
+      "24 hours"
+    ],
+    "pricePerWord": "$0.025"
+  }
+}
+

@@ -11,13 +11,15 @@ A web app where readers pay tiny amounts to reveal blurred words in articles. Bu
 - Uses browser wallet + x402 for frictionless micropayments
 - Perfect for pay-per-word or premium content monetization
 
-## Current MVP Features
+## Current Features
 
-- ✅ One hardcoded article
-- ✅ Two random blurred words
-- ✅ $0.10 per word reveal
+- ✅ **Configurable articles** via JSON file
+- ✅ **Choose any words to blur** - just list them
+- ✅ **Set your own price** per word reveal
+- ✅ **Pay once, reveal all** - revealing one instance reveals ALL instances of that word
 - ✅ Instant payment via browser wallet
 - ✅ Persistent reveals (once paid, stays revealed)
+- ✅ Smart word matching (handles punctuation & case)
 
 ## What is x402?
 
@@ -86,16 +88,35 @@ This starts:
 4. Click a blurred word and confirm payment
 5. Watch it reveal instantly
 
+## Customization
+
+### Configure Your Article
+
+Edit `server/article-config.json`:
+
+```json
+{
+  "article": {
+    "id": "my-article",
+    "title": "Your Title Here",
+    "content": "Your article text...",
+    "blurredWords": ["word1", "secret", "premium"],
+    "pricePerWord": "$0.010"
+  }
+}
+```
+
+Restart server, done! See `server/ARTICLE_CONFIG_GUIDE.md` for detailed guide.
+
 ## Future Enhancements
 
-- [ ] Configurable article content
-- [ ] Multiple articles
-- [ ] Custom blur selection (choose which words to blur)
+- [ ] Multiple articles with routing
 - [ ] Variable pricing per word (rare words cost more)
 - [ ] Author dashboard to manage articles
 - [ ] Analytics (which words get revealed most)
 - [ ] Bulk reveal option (pay to reveal all)
 - [ ] Time-based pricing (words get cheaper over time)
+- [ ] Database persistence (currently in-memory)
 
 ## Use Cases
 

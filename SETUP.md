@@ -53,29 +53,44 @@ Before testing, you need test tokens on Base Sepolia:
 
 ## Customization
 
-### Change Which Words Are Blurred
+**✨ The app is now fully configurable via JSON!**
 
-Edit `server/index.ts` around line 53 and 68:
+### Edit Your Article and Blurred Words
 
-```typescript
-{ id: "w7", text: "monetization.", isBlurred: true }, // Change to false to unblur
-{ id: "w22", text: "blockchain-based", isBlurred: true }, // Or blur different words
-```
+Edit `server/article-config.json`:
 
-### Change the Article
-
-Edit the `article` constant in `server/index.ts` starting at line 43.
-
-### Change the Price
-
-Edit `server/index.ts` line 96:
-
-```typescript
-"/api/pay/reveal/:wordId": {
-  price: "$0.010",  // Change this
-  network,
+```json
+{
+  "article": {
+    "id": "article-1",
+    "title": "Your Article Title Here",
+    "content": "Write your full article text here. Just write naturally!",
+    "blurredWords": [
+      "word1",
+      "word2",
+      "any-phrase"
+    ],
+    "pricePerWord": "$0.010"
+  }
 }
 ```
+
+After editing, just restart the server (`Ctrl+C` then `npm run dev`).
+
+**For detailed instructions**, see `server/ARTICLE_CONFIG_GUIDE.md`
+
+### What You Can Configure
+
+- **Article text**: Any length, written naturally
+- **Which words to blur**: Just list them in `blurredWords` array
+- **Price per word**: Change `pricePerWord` (e.g., `"$0.050"` for 5 cents)
+- **Article title**: The heading shown to readers
+
+The server automatically:
+- Splits your text into words
+- Matches blurred words (case-insensitive, handles punctuation)
+- Creates payment endpoints for each blurred word
+- Generates unique IDs for all words
 
 ## Troubleshooting
 

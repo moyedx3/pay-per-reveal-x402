@@ -3,9 +3,15 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 import { paymentMiddleware, Network, Resource } from "x402-hono";
-import { v4 as uuidv4 } from "uuid";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
 config();
+
+// ES module __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Configuration from environment variables
 const facilitatorUrl = process.env.FACILITATOR_URL as Resource || "https://x402.org/facilitator";
@@ -42,71 +48,90 @@ interface Article {
   id: string;
   title: string;
   content: ArticleWord[];
+  pricePerWord: string;
 }
 
-// Hardcoded article for MVP
-const article: Article = {
-  id: "article-1",
-  title: "The Future of Micropayments on the Web",
-  content: [
-    { id: "w1", text: "The", isBlurred: false },
-    { id: "w2", text: "internet", isBlurred: false },
-    { id: "w3", text: "has", isBlurred: false },
-    { id: "w4", text: "long", isBlurred: false },
-    { id: "w5", text: "struggled", isBlurred: false },
-    { id: "w6", text: "with", isBlurred: false },
-    { id: "w7", text: "monetization.", isBlurred: true }, // Blurred word 1
-    { id: "w8", text: "Traditional", isBlurred: false },
-    { id: "w9", text: "payment", isBlurred: false },
-    { id: "w10", text: "systems", isBlurred: false },
-    { id: "w11", text: "impose", isBlurred: false },
-    { id: "w12", text: "high", isBlurred: false },
-    { id: "w13", text: "fees", isBlurred: false },
-    { id: "w14", text: "and", isBlurred: false },
-    { id: "w15", text: "complex", isBlurred: false },
-    { id: "w16", text: "integrations,", isBlurred: false },
-    { id: "w17", text: "making", isBlurred: false },
-    { id: "w18", text: "small", isBlurred: false },
-    { id: "w19", text: "payments", isBlurred: false },
-    { id: "w20", text: "impractical.", isBlurred: false },
-    { id: "w21", text: "Enter", isBlurred: false },
-    { id: "w22", text: "blockchain-based", isBlurred: true }, // Blurred word 2
-    { id: "w23", text: "payment", isBlurred: false },
-    { id: "w24", text: "protocols", isBlurred: false },
-    { id: "w25", text: "like", isBlurred: false },
-    { id: "w26", text: "x402,", isBlurred: false },
-    { id: "w27", text: "which", isBlurred: false },
-    { id: "w28", text: "enable", isBlurred: false },
-    { id: "w29", text: "frictionless", isBlurred: false },
-    { id: "w30", text: "micropayments", isBlurred: false },
-    { id: "w31", text: "with", isBlurred: false },
-    { id: "w32", text: "no", isBlurred: false },
-    { id: "w33", text: "fees", isBlurred: false },
-    { id: "w34", text: "and", isBlurred: false },
-    { id: "w35", text: "instant", isBlurred: false },
-    { id: "w36", text: "settlement.", isBlurred: false },
-  ],
-};
+interface ArticleConfig {
+  article: {
+    id: string;
+    title: string;
+    content: string;
+    blurredWords: string[];
+    pricePerWord: string;
+  };
+}
+
+// Load and parse article from config file
+function loadArticleFromConfig(): Article {
+  const configPath = join(__dirname, "article-config.json");
+  const configData = readFileSync(configPath, "utf-8");
+  const config: ArticleConfig = JSON.parse(configData);
+
+  // Split content into words and assign IDs
+  const words = config.article.content.split(/(\s+)/); // Split but keep whitespace
+  let wordIndex = 0;
+  
+  const content: ArticleWord[] = words
+    .filter(w => w.trim().length > 0) // Remove pure whitespace entries
+    .map(word => {
+      wordIndex++;
+      const wordId = `w${wordIndex}`;
+      
+      // Check if this word (or word without punctuation) should be blurred
+      const wordLower = word.toLowerCase();
+      const wordNoPunct = word.replace(/[.,!?;:'"()]/g, "").toLowerCase();
+      
+      const isBlurred = config.article.blurredWords.some(blurWord => {
+        const blurLower = blurWord.toLowerCase();
+        return wordLower === blurLower || 
+               wordNoPunct === blurLower ||
+               wordLower.startsWith(blurLower) ||
+               wordNoPunct === blurLower.replace(/[.,!?;:'"()]/g, "");
+      });
+
+      return {
+        id: wordId,
+        text: word,
+        isBlurred,
+      };
+    });
+
+  return {
+    id: config.article.id,
+    title: config.article.title,
+    content,
+    pricePerWord: config.article.pricePerWord,
+  };
+}
+
+const article = loadArticleFromConfig();
+console.log(`📚 Loaded article: "${article.title}" with ${article.content.filter(w => w.isBlurred).length} blurred words`);
 
 // Track revealed words per user (in production, use proper user identification)
 // For MVP, we'll track by wallet address
-const revealedWords = new Map<string, Set<string>>(); // Map<walletAddress, Set<wordId>>
+// Note: We track word TEXT (not word ID) so revealing one instance reveals all instances
+const revealedWords = new Map<string, Set<string>>(); // Map<walletAddress, Set<wordText>>
 
-// Configure x402 payment middleware for word reveals
+// Configure x402 payment middleware dynamically for all blurred words
 // Note: x402 doesn't support dynamic routes, so we need individual endpoints for each word
+// We create one endpoint per blurred word instance (even if same word appears multiple times)
+// But revealing any instance reveals ALL instances of that word
+const paymentEndpoints: Record<string, { price: string; network: Network }> = {};
+article.content
+  .filter(word => word.isBlurred)
+  .forEach(word => {
+    paymentEndpoints[`/api/pay/reveal/${word.id}`] = {
+      price: article.pricePerWord,
+      network,
+    };
+  });
+
+console.log(`💰 Payment endpoints configured:`, Object.keys(paymentEndpoints).length);
+
 app.use(
   paymentMiddleware(
     payTo,
-    {
-      "/api/pay/reveal/w7": {
-        price: "$0.010",
-        network,
-      },
-      "/api/pay/reveal/w22": {
-        price: "$0.010",
-        network,
-      },
-    },
+    paymentEndpoints,
     {
       url: facilitatorUrl,
     },
@@ -130,12 +155,16 @@ app.get("/api/health", (c) => {
 app.get("/api/article", (c) => {
   const walletAddress = c.req.header("X-Wallet-Address");
   
-  // Get user's revealed words
+  // Get user's revealed words (stored as word text, not IDs)
   const userRevealed = walletAddress ? revealedWords.get(walletAddress.toLowerCase()) || new Set() : new Set();
   
   // Return article with words replaced by blur placeholders for unrevealed blurred words
   const maskedContent = article.content.map(word => {
-    if (word.isBlurred && !userRevealed.has(word.id)) {
+    // Check if this word text has been revealed (normalize for comparison)
+    const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()]/g, "");
+    const isWordRevealed = userRevealed.has(wordTextNormalized);
+    
+    if (word.isBlurred && !isWordRevealed) {
       return {
         id: word.id,
         text: "█████", // Placeholder for blurred text
@@ -147,7 +176,7 @@ app.get("/api/article", (c) => {
       id: word.id,
       text: word.text,
       isBlurred: word.isBlurred,
-      isRevealed: word.isBlurred ? userRevealed.has(word.id) : false,
+      isRevealed: word.isBlurred ? isWordRevealed : false,
     };
   });
 
@@ -155,7 +184,7 @@ app.get("/api/article", (c) => {
     id: article.id,
     title: article.title,
     content: maskedContent,
-    pricePerWord: "$0.10",
+    pricePerWord: article.pricePerWord,
   });
 });
 
@@ -172,36 +201,49 @@ const handleWordReveal = (wordId: string, walletAddress: string | undefined) => 
     return { success: false, error: "This word is not blurred", status: 400 };
   }
 
-  // Track that this user has revealed this word
+  // Track that this user has revealed this word TEXT (not just this ID)
+  // This means all instances of the same word will be revealed
   if (walletAddress) {
     const userAddress = walletAddress.toLowerCase();
     if (!revealedWords.has(userAddress)) {
       revealedWords.set(userAddress, new Set());
     }
-    revealedWords.get(userAddress)!.add(wordId);
+    
+    // Store normalized word text (lowercase, no punctuation)
+    const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()]/g, "");
+    revealedWords.get(userAddress)!.add(wordTextNormalized);
   }
+
+  // Count how many instances of this word will be revealed
+  const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()]/g, "");
+  const totalInstances = article.content.filter(w => {
+    const wNormalized = w.text.toLowerCase().replace(/[.,!?;:'"()]/g, "");
+    return wNormalized === wordTextNormalized && w.isBlurred;
+  }).length;
 
   return {
     success: true,
     wordId,
     text: word.text,
-    message: `Word revealed: "${word.text}"`,
+    message: totalInstances > 1 
+      ? `Word revealed: "${word.text}" (${totalInstances} instances unlocked)`
+      : `Word revealed: "${word.text}"`,
     status: 200,
   };
 };
 
-// Paid endpoints - reveal specific words ($0.10 each)
-app.post("/api/pay/reveal/w7", (c) => {
-  const walletAddress = c.req.header("X-Wallet-Address");
-  const result = handleWordReveal("w7", walletAddress);
-  return c.json(result, result.status as any);
-});
+// Dynamically create paid endpoints for each blurred word
+article.content
+  .filter(word => word.isBlurred)
+  .forEach(word => {
+    app.post(`/api/pay/reveal/${word.id}`, (c) => {
+      const walletAddress = c.req.header("X-Wallet-Address");
+      const result = handleWordReveal(word.id, walletAddress);
+      return c.json(result, result.status as any);
+    });
+  });
 
-app.post("/api/pay/reveal/w22", (c) => {
-  const walletAddress = c.req.header("X-Wallet-Address");
-  const result = handleWordReveal("w22", walletAddress);
-  return c.json(result, result.status as any);
-});
+const blurredWords = article.content.filter(w => w.isBlurred);
 
 console.log(`
 🚀 Pay-Per-Reveal Article Server
@@ -211,9 +253,10 @@ console.log(`
 🌐 Port: ${port}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📄 Article: "${article.title}"
-💸 Price per word reveal: $0.10
-🔒 Blurred words: ${article.content.filter(w => w.isBlurred).length}
+💸 Price per word reveal: ${article.pricePerWord}
+🔒 Blurred words: ${blurredWords.length} (${blurredWords.map(w => `"${w.text}"`).join(", ")})
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 Edit article-config.json to customize content and blurred words
 📚 Learn more: https://x402.org
 💬 Get help: https://discord.gg/invite/cdp
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

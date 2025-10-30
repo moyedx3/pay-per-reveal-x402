@@ -66,15 +66,9 @@ function App() {
     try {
       const result = await api.revealWord(word.id);
       
-      // Update the article with the revealed word
-      if (article) {
-        const updatedContent = article.content.map(w => 
-          w.id === word.id 
-            ? { ...w, text: result.text, isRevealed: true } 
-            : w
-        );
-        setArticle({ ...article, content: updatedContent });
-      }
+      // Reload the article to get ALL instances of this word revealed
+      // (The server tracks by word text, so all instances are now unlocked)
+      await loadArticle();
 
       setSuccessMessage(result.message);
       // Clear success message after 3 seconds
