@@ -6,35 +6,21 @@ import './App.css';
 
 function App() {
   const { walletClient } = useWallet();
-  const [serverStatus, setServerStatus] = useState<string>('checking...');
   const [article, setArticle] = useState<Article | null>(null);
   const [revealingWordId, setRevealingWordId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState<boolean>(false);
 
-  // Update API client when wallet changes
   useEffect(() => {
     updateApiClient(walletClient);
-    // Reload article when wallet changes to get user-specific revealed words
     if (article) {
       loadArticle();
     }
   }, [walletClient]);
 
-  // Check server health and load article on mount
   useEffect(() => {
-    checkServerHealth();
     loadArticle();
   }, []);
-
-  const checkServerHealth = async () => {
-    try {
-      const health = await api.getHealth();
-      setServerStatus(`✅ Connected to ${health.config.network}`);
-    } catch (error) {
-      setServerStatus('❌ Server offline');
-    }
-  };
 
   const loadArticle = async () => {
     try {
@@ -43,129 +29,109 @@ function App() {
       setError(null);
     } catch (error: any) {
       console.error('Failed to load article:', error);
-      setError('Failed to load article. Please refresh the page.');
     }
   };
 
   const handleWordClick = async (word: ArticleWord) => {
-    // Only allow clicking on blurred, unrevealed words
-    if (!word.isBlurred || word.isRevealed) {
-      return;
-    }
+    if (!word.isBlurred || word.isRevealed) return;
 
-    // Check if wallet is connected
     if (!walletClient || !walletClient.account) {
-      setError('Please connect your wallet first to reveal words.');
+      setError('Connect wallet to reveal');
+      setTimeout(() => setError(null), 2000);
       return;
     }
 
     setRevealingWordId(word.id);
     setError(null);
-    setSuccessMessage(null);
 
     try {
-      const result = await api.revealWord(word.id);
-      
-      // Reload the article to get ALL instances of this word revealed
-      // (The server tracks by word text, so all instances are now unlocked)
+      await api.revealWord(word.id);
       await loadArticle();
-
-      setSuccessMessage(result.message);
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error: any) {
-      console.error('Failed to reveal word:', error);
-      setError(error.message || 'Failed to reveal word. Please try again.');
+      setError('Payment failed');
+      setTimeout(() => setError(null), 2000);
     } finally {
       setRevealingWordId(null);
     }
   };
 
+  const blurredCount = article ? article.content.filter(w => w.isBlurred && !w.isRevealed).length : 0;
+
   return (
     <div className="app">
-      <header>
-        <h1>💸 Pay-Per-Reveal Article</h1>
-        <p>Click blurred words to reveal them for $0.10 each</p>
-        <div className="server-status">{serverStatus}</div>
-      </header>
-
-      <main>
-        <section className="wallet-section">
-          <h2>Connect Your Wallet</h2>
+      {/* Help button and wallet - top right */}
+      <div className="top-right-controls">
+        <button 
+          className="help-button"
+          onClick={() => setShowHelp(!showHelp)}
+          aria-label="Help"
+        >
+          ?
+        </button>
+        
+        <div className="wallet-button">
           <WalletConnect />
-          {!walletClient && (
-            <p className="hint">Connect your wallet to start revealing words</p>
-          )}
-        </section>
-
-        {(error || successMessage) && (
-          <section className="message-section">
-            {error && <div className="error-message">❌ {error}</div>}
-            {successMessage && <div className="success-message">✅ {successMessage}</div>}
-          </section>
-        )}
-
-        {article && (
-          <section className="article-section">
-            <article className="article">
-              <h1 className="article-title">{article.title}</h1>
-              <div className="article-content">
-                {article.content.map((word, index) => {
-                  const isBlurredAndHidden = word.isBlurred && !word.isRevealed;
-                  const isRevealing = revealingWordId === word.id;
-                  
-                  return (
-                    <span
-                      key={word.id}
-                      className={`word ${isBlurredAndHidden ? 'blurred' : ''} ${isRevealing ? 'revealing' : ''} ${word.isRevealed ? 'revealed' : ''}`}
-                      onClick={() => handleWordClick(word)}
-                      title={isBlurredAndHidden ? `Click to reveal for ${article.pricePerWord}` : ''}
-                    >
-                      {word.text}
-                      {index < article.content.length - 1 && ' '}
-                    </span>
-                  );
-                })}
-              </div>
-            </article>
-            
-            <div className="article-info">
-              <p className="price-info">💰 Price per word: {article.pricePerWord}</p>
-              <p className="blur-info">
-                🔒 Blurred words: {article.content.filter(w => w.isBlurred && !w.isRevealed).length} remaining
-              </p>
+          {article && (
+            <div className="wallet-info-panel">
+              <div className="info-item">{blurredCount} blurred</div>
+              <div className="info-item">{article.pricePerWord} each</div>
             </div>
-          </section>
-        )}
+          )}
+        </div>
+      </div>
 
-        {!article && !error && (
-          <section className="loading-section">
-            <p>Loading article...</p>
-          </section>
-        )}
-      </main>
-
-      <footer>
-        <p>
-          This is a demonstration of pay-per-reveal content monetization using x402 micropayments.
-          Each word reveal requires wallet approval.
-        </p>
-        <div className="builder-resources">
-          <h3>🛠️ Built with x402</h3>
-          <p>Frictionless micropayments for the web</p>
-          <div className="resource-links">
-            <a href="https://x402.org" target="_blank" rel="noopener noreferrer">
-              📚 x402 Documentation
-            </a>
-            <a href="https://github.com/coinbase/x402" target="_blank" rel="noopener noreferrer">
-              💻 GitHub Repository
-            </a>
-            <a href="https://discord.gg/invite/cdp" target="_blank" rel="noopener noreferrer">
-              💬 Discord Community
-            </a>
+      {/* Help popup */}
+      {showHelp && (
+        <div className="help-popup">
+          <div className="help-content">
+            <button className="help-close" onClick={() => setShowHelp(false)}>×</button>
+            
+            <h3>How it works</h3>
+            <ol>
+              <li>Connect your wallet (top right)</li>
+              <li>Click any blurred word to reveal it</li>
+              <li>Pay the small fee to unlock the word</li>
+            </ol>
+            <p className="help-note">Each payment reveals all instances of that word.</p>
+            
+            <div className="help-divider"></div>
+            
+            <h3>The tech</h3>
+            <p className="help-tech">
+              Powered by <strong>x402</strong>, a micropayment protocol for instant, 
+              fee-free transactions on <strong>Base Sepolia</strong> testnet.
+            </p>
           </div>
         </div>
-      </footer>
+      )}
+
+      {/* Error toast - minimal */}
+      {error && <div className="toast">{error}</div>}
+
+      {/* Article - center stage */}
+      {article && (
+        <article className="article">
+          <h1 className="article-title">{article.title}</h1>
+          <div className="article-content">
+            {article.content.map((word, index) => {
+              const isBlurredAndHidden = word.isBlurred && !word.isRevealed;
+              const isRevealing = revealingWordId === word.id;
+              
+              return (
+                <span
+                  key={word.id}
+                  className={`word ${isBlurredAndHidden ? 'blurred' : ''} ${isRevealing ? 'revealing' : ''} ${word.isRevealed ? 'revealed' : ''}`}
+                  onClick={() => handleWordClick(word)}
+                  title={isBlurredAndHidden ? `${article.pricePerWord}` : ''}
+                >
+                  {word.text}
+                  {index < article.content.length - 1 && ' '}
+                </span>
+              );
+            })}
+          </div>
+        </article>
+      )}
     </div>
   );
 }

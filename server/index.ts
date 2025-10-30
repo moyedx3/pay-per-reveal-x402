@@ -67,28 +67,69 @@ function loadArticleFromConfig(): Article {
   const configData = readFileSync(configPath, "utf-8");
   const config: ArticleConfig = JSON.parse(configData);
 
+  // Helper to normalize text for matching
+  const normalize = (text: string) => 
+    text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
+
+  // Build a map of which positions should be blurred (for multi-word phrase support)
+  const contentLower = config.article.content.toLowerCase();
+  const blurRanges: Array<{ start: number; end: number; phrase: string }> = [];
+
+  // Find all occurrences of blurred phrases in the content
+  config.article.blurredWords.forEach(blurPhrase => {
+    const phraseLower = blurPhrase.toLowerCase();
+    let searchPos = 0;
+    
+    while (true) {
+      const foundPos = contentLower.indexOf(phraseLower, searchPos);
+      if (foundPos === -1) break;
+      
+      // Make sure it's a word boundary (not part of another word)
+      const beforeChar = foundPos > 0 ? config.article.content[foundPos - 1] : ' ';
+      const afterChar = foundPos + phraseLower.length < config.article.content.length 
+        ? config.article.content[foundPos + phraseLower.length] 
+        : ' ';
+      
+      const isWordBoundary = /[\s.,!?;:'"()]/.test(beforeChar) && /[\s.,!?;:'"()]/.test(afterChar);
+      
+      if (isWordBoundary || foundPos === 0 || foundPos + phraseLower.length === config.article.content.length) {
+        blurRanges.push({
+          start: foundPos,
+          end: foundPos + phraseLower.length,
+          phrase: blurPhrase,
+        });
+      }
+      
+      searchPos = foundPos + 1;
+    }
+  });
+
   // Split content into words and assign IDs
-  const words = config.article.content.split(/(\s+)/); // Split but keep whitespace
+  const words = config.article.content.split(/(\s+)/);
   let wordIndex = 0;
+  let charPosition = 0;
   
   const content: ArticleWord[] = words
-    .filter(w => w.trim().length > 0) // Remove pure whitespace entries
+    .filter(w => w.trim().length > 0)
     .map(word => {
       wordIndex++;
       const wordId = `w${wordIndex}`;
       
-      // Check if this word (or word without punctuation) should be blurred
-      const wordLower = word.toLowerCase();
-      // Remove English and Korean/CJK punctuation
-      const wordNoPunct = word.replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "").toLowerCase();
+      // Check if this word falls within any blur range
+      const wordStart = charPosition;
+      const wordEnd = charPosition + word.length;
       
-      const isBlurred = config.article.blurredWords.some(blurWord => {
-        const blurLower = blurWord.toLowerCase();
-        return wordLower === blurLower || 
-               wordNoPunct === blurLower ||
-               wordLower.startsWith(blurLower) ||
-               wordNoPunct === blurLower.replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
+      const isBlurred = blurRanges.some(range => {
+        // Word is blurred if it overlaps with a blur range
+        return wordStart < range.end && wordEnd > range.start;
       });
+      
+      charPosition = wordEnd;
+      // Account for whitespace
+      const nextWhitespace = config.article.content.substring(charPosition).match(/^\s+/);
+      if (nextWhitespace) {
+        charPosition += nextWhitespace[0].length;
+      }
 
       return {
         id: wordId,
