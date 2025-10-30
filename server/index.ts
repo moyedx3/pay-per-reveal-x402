@@ -42,6 +42,7 @@ interface ArticleWord {
   id: string;
   text: string;
   isBlurred: boolean;
+  phraseId?: string; // Groups words that belong to the same phrase
 }
 
 interface Article {
@@ -119,10 +120,13 @@ function loadArticleFromConfig(): Article {
       const wordStart = charPosition;
       const wordEnd = charPosition + word.length;
       
-      const isBlurred = blurRanges.some(range => {
-        // Word is blurred if it overlaps with a blur range
+      // Find which blur range (if any) this word belongs to
+      const blurRange = blurRanges.find(range => {
         return wordStart < range.end && wordEnd > range.start;
       });
+      
+      const isBlurred = !!blurRange;
+      const phraseId = blurRange ? `phrase-${blurRange.phrase.replace(/\s+/g, '-').toLowerCase()}` : undefined;
       
       charPosition = wordEnd;
       // Account for whitespace
@@ -135,6 +139,7 @@ function loadArticleFromConfig(): Article {
         id: wordId,
         text: word,
         isBlurred,
+        phraseId,
       };
     });
 
@@ -243,20 +248,37 @@ const handleWordReveal = (wordId: string, walletAddress: string | undefined) => 
     return { success: false, error: "This word is not blurred", status: 400 };
   }
 
-  // Track that this user has revealed this word TEXT (not just this ID)
-  // This means all instances of the same word will be revealed
+  // Track that this user has revealed this word/phrase
   if (walletAddress) {
     const userAddress = walletAddress.toLowerCase();
     if (!revealedWords.has(userAddress)) {
       revealedWords.set(userAddress, new Set());
     }
     
-    // Store normalized word text (lowercase, no punctuation)
-    const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
-    revealedWords.get(userAddress)!.add(wordTextNormalized);
+    // If this word is part of a phrase, reveal all words in that phrase
+    if (word.phraseId) {
+      // Find all words with the same phraseId and reveal them
+      article.content
+        .filter(w => w.phraseId === word.phraseId)
+        .forEach(w => {
+          const normalized = w.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
+          revealedWords.get(userAddress)!.add(normalized);
+        });
+    } else {
+      // Single word - store normalized word text
+      const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
+      revealedWords.get(userAddress)!.add(wordTextNormalized);
+    }
   }
 
-  // Count how many instances of this word will be revealed
+  // Get the full phrase text if it's a multi-word phrase
+  let displayText = word.text;
+  if (word.phraseId) {
+    const phraseWords = article.content.filter(w => w.phraseId === word.phraseId);
+    displayText = phraseWords.map(w => w.text).join(' ');
+  }
+
+  // Count how many instances of this word/phrase will be revealed
   const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
   const totalInstances = article.content.filter(w => {
     const wNormalized = w.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
@@ -266,10 +288,10 @@ const handleWordReveal = (wordId: string, walletAddress: string | undefined) => 
   return {
     success: true,
     wordId,
-    text: word.text,
+    text: displayText,
     message: totalInstances > 1 
-      ? `Word revealed: "${word.text}" (${totalInstances} instances unlocked)`
-      : `Word revealed: "${word.text}"`,
+      ? `Word revealed: "${displayText}" (${totalInstances} instances unlocked)`
+      : `Word revealed: "${displayText}"`,
     status: 200,
   };
 };

@@ -56,6 +56,9 @@ function App() {
   };
 
   const blurredCount = article ? article.content.filter(w => w.isBlurred && !w.isRevealed).length : 0;
+  const totalBlurred = article ? article.content.filter(w => w.isBlurred).length : 0;
+  const unlockedCount = totalBlurred - blurredCount;
+  const progressPercent = totalBlurred > 0 ? (unlockedCount / totalBlurred) * 100 : 0;
 
   return (
     <div className="app">
@@ -112,23 +115,84 @@ function App() {
       {article && (
         <article className="article">
           <h1 className="article-title">{article.title}</h1>
+          
+          {/* Progress indicator */}
+          {totalBlurred > 0 && (
+            <div className="progress-indicator">
+              <div className="progress-text">
+                {unlockedCount} of {totalBlurred} unlocked
+              </div>
+              <div className="progress-bar">
+                <div 
+                  className="progress-fill" 
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+          
           <div className="article-content">
-            {article.content.map((word, index) => {
-              const isBlurredAndHidden = word.isBlurred && !word.isRevealed;
-              const isRevealing = revealingWordId === word.id;
-              
-              return (
-                <span
-                  key={word.id}
-                  className={`word ${isBlurredAndHidden ? 'blurred' : ''} ${isRevealing ? 'revealing' : ''} ${word.isRevealed ? 'revealed' : ''}`}
-                  onClick={() => handleWordClick(word)}
-                  title={isBlurredAndHidden ? `${article.pricePerWord}` : ''}
-                >
-                  {word.text}
-                  {index < article.content.length - 1 && ' '}
-                </span>
-              );
-            })}
+            {(() => {
+              const renderedElements: JSX.Element[] = [];
+              let skipUntilIndex = -1;
+
+              article.content.forEach((word, index) => {
+                // Skip if we already rendered this word as part of a phrase
+                if (index <= skipUntilIndex) return;
+
+                // Check if this is a multi-word phrase
+                if (word.phraseId && word.isBlurred) {
+                  // Collect all consecutive words with the same phraseId
+                  const phraseWords = [word];
+                  let nextIndex = index + 1;
+                  
+                  while (
+                    nextIndex < article.content.length &&
+                    article.content[nextIndex].phraseId === word.phraseId
+                  ) {
+                    phraseWords.push(article.content[nextIndex]);
+                    nextIndex++;
+                  }
+                  
+                  skipUntilIndex = nextIndex - 1;
+
+                  // Combine phrase words
+                  const phraseText = phraseWords.map(w => w.text).join(' ');
+                  const isBlurredAndHidden = word.isBlurred && !word.isRevealed;
+                  const isRevealing = revealingWordId === word.id;
+
+                  renderedElements.push(
+                    <span
+                      key={word.id}
+                      className={`word ${isBlurredAndHidden ? 'blurred' : ''} ${isRevealing ? 'revealing' : ''} ${word.isRevealed ? 'revealed' : ''}`}
+                      onClick={() => handleWordClick(word)}
+                      title={isBlurredAndHidden ? `${article.pricePerWord}` : ''}
+                    >
+                      {phraseText}
+                      {skipUntilIndex < article.content.length - 1 && ' '}
+                    </span>
+                  );
+                } else {
+                  // Single word
+                  const isBlurredAndHidden = word.isBlurred && !word.isRevealed;
+                  const isRevealing = revealingWordId === word.id;
+
+                  renderedElements.push(
+                    <span
+                      key={word.id}
+                      className={`word ${isBlurredAndHidden ? 'blurred' : ''} ${isRevealing ? 'revealing' : ''} ${word.isRevealed ? 'revealed' : ''}`}
+                      onClick={() => handleWordClick(word)}
+                      title={isBlurredAndHidden ? `${article.pricePerWord}` : ''}
+                    >
+                      {word.text}
+                      {index < article.content.length - 1 && ' '}
+                    </span>
+                  );
+                }
+              });
+
+              return renderedElements;
+            })()}
           </div>
         </article>
       )}

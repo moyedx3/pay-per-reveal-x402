@@ -69,6 +69,7 @@ export interface ArticleWord {
   text: string;
   isBlurred: boolean;
   isRevealed: boolean;
+  phraseId?: string;
 }
 
 export interface Article {
