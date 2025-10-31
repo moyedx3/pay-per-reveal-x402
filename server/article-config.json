@@ -1,14 +1,15 @@
 {
   "article": {
-    "id": "korean-example",
-    "title": "블록체인과 웹3의 미래",
-    "content": "블록체인 기술은 인터넷의 새로운 시대를 열고 있습니다. 탈중앙화된 시스템을 통해 사용자들은 더 많은 통제권을 가지게 됩니다. 특히 암호화폐와 NFT는 디지털 자산의 소유권을 혁신적으로 변화시켰습니다. 웹3 생태계에서 스마트컨트랙트는 중개자 없이 거래를 가능하게 합니다. 미래에는 더 많은 서비스가 블록체인 위에 구축될 것입니다.",
+    "id": "recipe-example",
+    "title": "The Ultimate Chocolate Chip Cookie Recipe",
+    "content": "The secret to perfect chocolate chip cookies lies in three key ingredients: using brown sugar instead of white sugar creates a chewy texture, adding vanilla extract enhances the overall flavor, and the magic temperature of 375 degrees ensures they're crispy outside but gooey inside. Mix your butter and sugars first, then add eggs one at a time. The real game-changer is letting the dough rest for 24 hours in the refrigerator before baking.",
     "blurredWords": [
-      "블록체인",
-      "암호화폐",
-      "스마트컨트랙트"
+      "brown sugar",
+      "vanilla extract",
+      "375 degrees",
+      "24 hours"
     ],
-    "pricePerWord": "$0.010"
+    "pricePerWord": "$0.025"
   }
 }
 

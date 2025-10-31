@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+  "dev": "tsx watch index.ts",
+  "build": "tsc && cp *.json dist/",
+  "start": "node dist/index.js"
   },
   "dependencies": {
     "hono": "^4.6.17",
