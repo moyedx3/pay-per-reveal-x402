@@ -10,5 +10,6 @@ export default defineConfig({
     host: true,
     port: 8080,
     strictPort: false,
+    allowedHosts: ['pay-per-reveal-x402-production.up.railway.app'],
   },
 }) 
