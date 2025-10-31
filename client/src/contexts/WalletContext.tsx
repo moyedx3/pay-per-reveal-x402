@@ -138,15 +138,17 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           disconnectWallet();
         } else if (accounts[0] !== address) {
           // Re-connect with new account
-          const client = createWalletClient({
-            account: accounts[0] as Hex,
-            chain: baseSepolia,
-            transport: custom(window.ethereum)
-          });
-          
-          setWalletClient(client);
-          setAddress(accounts[0] as Hex);
-          setIsConnected(true);
+          if (window.ethereum) {
+            const client = createWalletClient({
+              account: accounts[0] as Hex,
+              chain: baseSepolia,
+              transport: custom(window.ethereum)
+            });
+            
+            setWalletClient(client);
+            setAddress(accounts[0] as Hex);
+            setIsConnected(true);
+          }
         }
       };
 
@@ -159,8 +161,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       window.ethereum.on('chainChanged', handleChainChanged);
 
       return () => {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
+        if (window.ethereum) {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
+        }
       };
     }
   }, [address, disconnectWallet]);
