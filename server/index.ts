@@ -6,6 +6,7 @@ import { paymentMiddleware, Network, Resource } from "x402-hono";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { marked } from "marked";
 
 config();
 
@@ -44,6 +45,8 @@ interface ArticleWord {
   text: string;
   isBlurred: boolean;
   phraseId?: string; // Groups words that belong to the same phrase
+  type?: 'text' | 'heading' | 'list-item' | 'paragraph-break' | 'line-break';
+  level?: number; // For headings (1-6)
 }
 
 interface Article {
@@ -54,125 +57,215 @@ interface Article {
 }
 
 interface ArticleConfig {
-  article: {
+  articles: Array<{
     id: string;
     title: string;
     content: string;
     blurredWords: string[];
     pricePerWord: string;
-  };
+  }>;
 }
 
-// Load and parse article from config file
-function loadArticleFromConfig(): Article {
-  const configPath = join(__dirname, "article-config.json");
-  const configData = readFileSync(configPath, "utf-8");
-  const config: ArticleConfig = JSON.parse(configData);
-
-  // Helper to normalize text for matching
+// Load and parse a single article with markdown support
+function parseArticle(articleConfig: ArticleConfig['articles'][0]): Article {
+  const content: ArticleWord[] = [];
+  let wordIndex = 0;
+  
+  // Parse markdown tokens
+  const tokens = marked.lexer(articleConfig.content);
+  
+  // Helper to normalize text (remove punctuation)
   const normalize = (text: string) => 
-    text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
-
-  // Build a map of which positions should be blurred (for multi-word phrase support)
-  const contentLower = config.article.content.toLowerCase();
-  const blurRanges: Array<{ start: number; end: number; phrase: string }> = [];
-
-  // Find all occurrences of blurred phrases in the content
-  config.article.blurredWords.forEach(blurPhrase => {
-    const phraseLower = blurPhrase.toLowerCase();
-    let searchPos = 0;
+    text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF-]/g, "").trim();
+  
+  // Separate single-word and multi-word blur phrases
+  const singleWordBlurs = articleConfig.blurredWords.filter(phrase => !normalize(phrase).includes(' '));
+  const multiWordBlurs = articleConfig.blurredWords.filter(phrase => normalize(phrase).includes(' '));
+  
+  // Process text and split into words with blur logic
+  const processText = (rawText: string, type: ArticleWord['type'] = 'text', level?: number) => {
+    // Parse inline markdown (bold, italic, etc.) and strip it
+    const text = rawText
+      .replace(/\*\*([^*]+)\*\*/g, '$1')  // Bold: **text** -> text
+      .replace(/\*([^*]+)\*/g, '$1')      // Italic: *text* -> text
+      .replace(/__([^_]+)__/g, '$1')      // Bold: __text__ -> text
+      .replace(/_([^_]+)_/g, '$1');       // Italic: _text_ -> text
     
-    while (true) {
-      const foundPos = contentLower.indexOf(phraseLower, searchPos);
-      if (foundPos === -1) break;
+    const words = text.split(/(\s+)/);
+    const normalizedText = normalize(text);
+    
+    // Find all multi-word phrase positions in the normalized text
+    const multiPhraseRanges: Array<{ startWordIndex: number; endWordIndex: number; phrase: string }> = [];
+    
+    multiWordBlurs.forEach(blurPhrase => {
+      const phraseNormalized = normalize(blurPhrase);
+      const phraseWords = phraseNormalized.split(/\s+/);
       
-      // Make sure it's a word boundary (not part of another word)
-      const beforeChar = foundPos > 0 ? config.article.content[foundPos - 1] : ' ';
-      const afterChar = foundPos + phraseLower.length < config.article.content.length 
-        ? config.article.content[foundPos + phraseLower.length] 
-        : ' ';
+      // Build normalized words array (skipping whitespace)
+      const normalizedWords = words
+        .map((w, idx) => ({ text: w, normalized: normalize(w), originalIndex: idx }))
+        .filter(w => w.normalized.length > 0);
       
-      const isWordBoundary = /[\s.,!?;:'"()]/.test(beforeChar) && /[\s.,!?;:'"()]/.test(afterChar);
+      // Find consecutive matches
+      for (let i = 0; i <= normalizedWords.length - phraseWords.length; i++) {
+        let matches = true;
+        for (let j = 0; j < phraseWords.length; j++) {
+          if (normalizedWords[i + j].normalized !== phraseWords[j]) {
+            matches = false;
+            break;
+          }
+        }
+        
+        if (matches) {
+          multiPhraseRanges.push({
+            startWordIndex: i,
+            endWordIndex: i + phraseWords.length - 1,
+            phrase: blurPhrase,
+          });
+        }
+      }
+    });
+    
+    // Now process words
+    let wordArrayIndex = 0;
+    words.forEach((word, idx) => {
+      if (word.trim().length === 0) return;
       
-      if (isWordBoundary || foundPos === 0 || foundPos + phraseLower.length === config.article.content.length) {
-        blurRanges.push({
-          start: foundPos,
-          end: foundPos + phraseLower.length,
-          phrase: blurPhrase,
-        });
+      wordIndex++;
+      const wordId = `w${wordIndex}`;
+      const wordNormalized = normalize(word);
+      
+      // Check if this word is part of a multi-word phrase
+      let blurPhrase: string | null = null;
+      for (const range of multiPhraseRanges) {
+        if (wordArrayIndex >= range.startWordIndex && wordArrayIndex <= range.endWordIndex) {
+          blurPhrase = range.phrase;
+          break;
+        }
       }
       
-      searchPos = foundPos + 1;
+      // If not part of multi-word, check single-word matches
+      if (!blurPhrase) {
+        for (const singleBlur of singleWordBlurs) {
+          if (normalize(singleBlur) === wordNormalized) {
+            blurPhrase = singleBlur;
+            break;
+          }
+        }
+      }
+      
+      content.push({
+        id: wordId,
+        text: word,
+        isBlurred: !!blurPhrase,
+        phraseId: blurPhrase ? `phrase-${blurPhrase.replace(/\s+/g, '-').toLowerCase()}` : undefined,
+        type,
+        level,
+      });
+      
+      wordArrayIndex++;
+    });
+  };
+  
+  // Walk through tokens and build content
+  tokens.forEach((token, tokenIndex) => {
+    if (token.type === 'heading') {
+      processText(token.text, 'heading', token.depth);
+      // Add paragraph break after heading
+      if (tokenIndex < tokens.length - 1) {
+        wordIndex++;
+        content.push({
+          id: `w${wordIndex}`,
+          text: '',
+          isBlurred: false,
+          type: 'paragraph-break',
+        });
+      }
+    } else if (token.type === 'paragraph') {
+      processText(token.text, 'text');
+      // Add paragraph break after paragraph
+      if (tokenIndex < tokens.length - 1) {
+        wordIndex++;
+        content.push({
+          id: `w${wordIndex}`,
+          text: '',
+          isBlurred: false,
+          type: 'paragraph-break',
+        });
+      }
+    } else if (token.type === 'list') {
+      token.items?.forEach((item: any, itemIndex: number) => {
+        processText(item.text, 'list-item');
+        // Add line break between list items
+        if (itemIndex < (token.items?.length || 0) - 1) {
+          wordIndex++;
+          content.push({
+            id: `w${wordIndex}`,
+            text: '',
+            isBlurred: false,
+            type: 'line-break',
+          });
+        }
+      });
+      // Add paragraph break after list
+      if (tokenIndex < tokens.length - 1) {
+        wordIndex++;
+        content.push({
+          id: `w${wordIndex}`,
+          text: '',
+          isBlurred: false,
+          type: 'paragraph-break',
+        });
+      }
+    } else if (token.type === 'space') {
+      // Skip spaces between blocks (handled by paragraph breaks)
+    } else {
+      // Fallback for any other token type
+      if ('text' in token && token.text) {
+        processText(token.text, 'text');
+      }
     }
   });
 
-  // Split content into words and assign IDs
-  const words = config.article.content.split(/(\s+)/);
-  let wordIndex = 0;
-  let charPosition = 0;
-  
-  const content: ArticleWord[] = words
-    .filter(w => w.trim().length > 0)
-    .map(word => {
-      wordIndex++;
-      const wordId = `w${wordIndex}`;
-      
-      // Check if this word falls within any blur range
-      const wordStart = charPosition;
-      const wordEnd = charPosition + word.length;
-      
-      // Find which blur range (if any) this word belongs to
-      const blurRange = blurRanges.find(range => {
-        return wordStart < range.end && wordEnd > range.start;
-      });
-      
-      const isBlurred = !!blurRange;
-      const phraseId = blurRange ? `phrase-${blurRange.phrase.replace(/\s+/g, '-').toLowerCase()}` : undefined;
-      
-      charPosition = wordEnd;
-      // Account for whitespace
-      const nextWhitespace = config.article.content.substring(charPosition).match(/^\s+/);
-      if (nextWhitespace) {
-        charPosition += nextWhitespace[0].length;
-      }
-
-      return {
-        id: wordId,
-        text: word,
-        isBlurred,
-        phraseId,
-      };
-    });
-
   return {
-    id: config.article.id,
-    title: config.article.title,
+    id: articleConfig.id,
+    title: articleConfig.title,
     content,
-    pricePerWord: config.article.pricePerWord,
+    pricePerWord: articleConfig.pricePerWord,
   };
 }
 
-const article = loadArticleFromConfig();
-console.log(`📚 Loaded article: "${article.title}" with ${article.content.filter(w => w.isBlurred).length} blurred words`);
+// Load all articles from config
+function loadAllArticles(): Article[] {
+  const configPath = join(__dirname, "article-config.json");
+  const configData = readFileSync(configPath, "utf-8");
+  const config: ArticleConfig = JSON.parse(configData);
+  
+  return config.articles.map(articleConfig => parseArticle(articleConfig));
+}
 
-// Track revealed words per user (in production, use proper user identification)
-// For MVP, we'll track by wallet address
-// Note: We track word TEXT (not word ID) so revealing one instance reveals all instances
-const revealedWords = new Map<string, Set<string>>(); // Map<walletAddress, Set<wordText>>
+const articles = loadAllArticles();
+console.log(`📚 Loaded ${articles.length} article(s)`);
+articles.forEach((article, idx) => {
+  console.log(`  ${idx + 1}. "${article.title}" - ${article.content.filter(w => w.isBlurred).length} blurred words`);
+});
 
-// Configure x402 payment middleware dynamically for all blurred words
-// Note: x402 doesn't support dynamic routes, so we need individual endpoints for each word
-// We create one endpoint per blurred word instance (even if same word appears multiple times)
-// But revealing any instance reveals ALL instances of that word
+// Track revealed words per user per article
+// Map<walletAddress, Map<articleId, Set<wordText>>>
+const revealedWords = new Map<string, Map<string, Set<string>>>();
+
+// Configure x402 payment middleware dynamically for all blurred words across all articles
 const paymentEndpoints: Record<string, { price: string; network: Network }> = {};
-article.content
-  .filter(word => word.isBlurred)
-  .forEach(word => {
-    paymentEndpoints[`/api/pay/reveal/${word.id}`] = {
-      price: article.pricePerWord,
-      network,
-    };
-  });
+articles.forEach((article, articleIndex) => {
+  article.content
+    .filter(word => word.isBlurred)
+    .forEach(word => {
+      paymentEndpoints[`/api/pay/reveal/${articleIndex}/${word.id}`] = {
+        price: article.pricePerWord,
+        network,
+      };
+    });
+});
 
 console.log(`💰 Payment endpoints configured:`, Object.keys(paymentEndpoints).length);
 
@@ -199,18 +292,41 @@ app.get("/api/health", (c) => {
   });
 });
 
-// Free endpoint - get article with blur info (but not the actual words)
-app.get("/api/article", (c) => {
+// Free endpoint - list all articles (metadata only)
+app.get("/api/articles", (c) => {
+  return c.json({
+    articles: articles.map((article, index) => ({
+      index,
+      id: article.id,
+      title: article.title,
+      pricePerWord: article.pricePerWord,
+      totalWords: article.content.length,
+      blurredWords: article.content.filter(w => w.isBlurred).length,
+    })),
+  });
+});
+
+// Free endpoint - get a specific article by index
+app.get("/api/article/:index", (c) => {
+  const articleIndex = parseInt(c.req.param("index"));
+  
+  if (isNaN(articleIndex) || articleIndex < 0 || articleIndex >= articles.length) {
+    return c.json({ error: "Invalid article index" }, 404);
+  }
+  
+  const article = articles[articleIndex];
   const walletAddress = c.req.header("X-Wallet-Address");
   
-  // Get user's revealed words (stored as word text, not IDs)
-  const userRevealed = walletAddress ? revealedWords.get(walletAddress.toLowerCase()) || new Set() : new Set();
+  // Get user's revealed words for this specific article
+  const userArticleRevealed = walletAddress 
+    ? (revealedWords.get(walletAddress.toLowerCase())?.get(article.id) || new Set())
+    : new Set();
   
   // Return article with words replaced by blur placeholders for unrevealed blurred words
   const maskedContent = article.content.map(word => {
     // Check if this word text has been revealed (normalize for comparison)
     const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
-    const isWordRevealed = userRevealed.has(wordTextNormalized);
+    const isWordRevealed = userArticleRevealed.has(wordTextNormalized);
     
     if (word.isBlurred && !isWordRevealed) {
       return {
@@ -218,6 +334,9 @@ app.get("/api/article", (c) => {
         text: "█████", // Placeholder for blurred text
         isBlurred: true,
         isRevealed: false,
+        type: word.type,
+        level: word.level,
+        phraseId: word.phraseId,
       };
     }
     return {
@@ -225,10 +344,14 @@ app.get("/api/article", (c) => {
       text: word.text,
       isBlurred: word.isBlurred,
       isRevealed: word.isBlurred ? isWordRevealed : false,
+      type: word.type,
+      level: word.level,
+      phraseId: word.phraseId,
     };
   });
 
   return c.json({
+    index: articleIndex,
     id: article.id,
     title: article.title,
     content: maskedContent,
@@ -237,7 +360,13 @@ app.get("/api/article", (c) => {
 });
 
 // Helper function to handle word reveal
-const handleWordReveal = (wordId: string, walletAddress: string | undefined) => {
+const handleWordReveal = (articleIndex: number, wordId: string, walletAddress: string | undefined) => {
+  if (articleIndex < 0 || articleIndex >= articles.length) {
+    return { success: false, error: "Invalid article index", status: 404 };
+  }
+  
+  const article = articles[articleIndex];
+  
   // Find the word in the article
   const word = article.content.find(w => w.id === wordId);
 
@@ -249,12 +378,19 @@ const handleWordReveal = (wordId: string, walletAddress: string | undefined) => 
     return { success: false, error: "This word is not blurred", status: 400 };
   }
 
-  // Track that this user has revealed this word/phrase
+  // Track that this user has revealed this word/phrase for this article
   if (walletAddress) {
     const userAddress = walletAddress.toLowerCase();
     if (!revealedWords.has(userAddress)) {
-      revealedWords.set(userAddress, new Set());
+      revealedWords.set(userAddress, new Map());
     }
+    
+    const userArticles = revealedWords.get(userAddress)!;
+    if (!userArticles.has(article.id)) {
+      userArticles.set(article.id, new Set());
+    }
+    
+    const userArticleWords = userArticles.get(article.id)!;
     
     // If this word is part of a phrase, reveal all words in that phrase
     if (word.phraseId) {
@@ -263,12 +399,12 @@ const handleWordReveal = (wordId: string, walletAddress: string | undefined) => 
         .filter(w => w.phraseId === word.phraseId)
         .forEach(w => {
           const normalized = w.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
-          revealedWords.get(userAddress)!.add(normalized);
+          userArticleWords.add(normalized);
         });
     } else {
       // Single word - store normalized word text
       const wordTextNormalized = word.text.toLowerCase().replace(/[.,!?;:'"()\u3000-\u303F\uFF00-\uFFEF]/g, "");
-      revealedWords.get(userAddress)!.add(wordTextNormalized);
+      userArticleWords.add(wordTextNormalized);
     }
   }
 
@@ -297,18 +433,18 @@ const handleWordReveal = (wordId: string, walletAddress: string | undefined) => 
   };
 };
 
-// Dynamically create paid endpoints for each blurred word
-article.content
-  .filter(word => word.isBlurred)
-  .forEach(word => {
-    app.post(`/api/pay/reveal/${word.id}`, (c) => {
-      const walletAddress = c.req.header("X-Wallet-Address");
-      const result = handleWordReveal(word.id, walletAddress);
-      return c.json(result, result.status as any);
+// Dynamically create paid endpoints for each blurred word in all articles
+articles.forEach((article, articleIndex) => {
+  article.content
+    .filter(word => word.isBlurred)
+    .forEach(word => {
+      app.post(`/api/pay/reveal/${articleIndex}/${word.id}`, (c) => {
+        const walletAddress = c.req.header("X-Wallet-Address");
+        const result = handleWordReveal(articleIndex, word.id, walletAddress);
+        return c.json(result, result.status as any);
+      });
     });
-  });
-
-const blurredWords = article.content.filter(w => w.isBlurred);
+});
 
 console.log(`
 🚀 Pay-Per-Reveal Article Server
@@ -317,9 +453,7 @@ console.log(`
 🔗 Network: ${network}
 🌐 Port: ${port}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📄 Article: "${article.title}"
-💸 Price per word reveal: ${article.pricePerWord}
-🔒 Blurred words: ${blurredWords.length} (${blurredWords.map(w => `"${w.text}"`).join(", ")})
+📚 ${articles.length} articles loaded
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📝 Edit article-config.json to customize content and blurred words
 📚 Learn more: https://x402.org

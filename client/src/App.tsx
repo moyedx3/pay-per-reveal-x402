@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { WalletConnect } from './components/WalletConnect';
 import { useWallet } from './contexts/WalletContext';
-import { api, updateApiClient, type Article, type ArticleWord } from './services/api';
+import { api, updateApiClient, type Article, type ArticleWord, type ArticleMetadata } from './services/api';
 import './App.css';
 
 function App() {
   const { walletClient } = useWallet();
+  const [articles, setArticles] = useState<ArticleMetadata[]>([]);
+  const [currentArticleIndex, setCurrentArticleIndex] = useState<number>(0);
   const [article, setArticle] = useState<Article | null>(null);
   const [revealingWordId, setRevealingWordId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -14,17 +16,31 @@ function App() {
   useEffect(() => {
     updateApiClient(walletClient);
     if (article) {
-      loadArticle();
+      loadArticle(currentArticleIndex);
     }
   }, [walletClient]);
 
   useEffect(() => {
-    loadArticle();
+    loadArticles();
   }, []);
 
-  const loadArticle = async () => {
+  useEffect(() => {
+    loadArticle(currentArticleIndex);
+  }, [currentArticleIndex]);
+
+  const loadArticles = async () => {
     try {
-      const articleData = await api.getArticle();
+      const response = await api.getArticles();
+      setArticles(response.articles);
+      setError(null);
+    } catch (error: any) {
+      console.error('Failed to load articles:', error);
+    }
+  };
+
+  const loadArticle = async (index: number) => {
+    try {
+      const articleData = await api.getArticle(index);
       setArticle(articleData);
       setError(null);
     } catch (error: any) {
@@ -45,8 +61,8 @@ function App() {
     setError(null);
 
     try {
-      await api.revealWord(word.id);
-      await loadArticle();
+      await api.revealWord(currentArticleIndex, word.id);
+      await loadArticle(currentArticleIndex);
     } catch (error: any) {
       setError('Payment failed');
       setTimeout(() => setError(null), 2000);
@@ -62,6 +78,26 @@ function App() {
 
   return (
     <div className="app">
+      {/* Logo - top left */}
+      <div className="logo">
+        <img src="/logo.png" alt="Logo" />
+      </div>
+
+      {/* Article navigation - top center */}
+      {articles.length > 1 && (
+        <div className="article-navigation">
+          {articles.map((_, index) => (
+            <button
+              key={index}
+              className={`article-nav-btn ${currentArticleIndex === index ? 'active' : ''}`}
+              onClick={() => setCurrentArticleIndex(index)}
+            >
+              {index + 1}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Help button and wallet - top right */}
       <div className="top-right-controls">
         <button 
@@ -134,60 +170,85 @@ function App() {
           <div className="article-content">
             {(() => {
               const renderedElements: JSX.Element[] = [];
-              let skipUntilIndex = -1;
-
+              let currentGroup: ArticleWord[] = [];
+              let currentType: ArticleWord['type'] = 'text';
+              let currentLevel: number | undefined;
+              
+              const renderWord = (word: ArticleWord, nextWord?: ArticleWord) => {
+                const isBlurredAndHidden = word.isBlurred && !word.isRevealed;
+                const isRevealing = revealingWordId === word.id;
+                
+                return (
+                  <span
+                    key={word.id}
+                    className={`word ${isBlurredAndHidden ? 'blurred' : ''} ${isRevealing ? 'revealing' : ''} ${word.isRevealed ? 'revealed' : ''}`}
+                    onClick={() => handleWordClick(word)}
+                    title={isBlurredAndHidden ? `${article.pricePerWord}` : ''}
+                  >
+                    {word.text}
+                    {nextWord && ' '}
+                  </span>
+                );
+              };
+              
+              const flushGroup = () => {
+                if (currentGroup.length === 0) return;
+                
+                const content = currentGroup.map((word, idx) => 
+                  renderWord(word, currentGroup[idx + 1])
+                );
+                
+                if (currentType === 'heading') {
+                  const HeadingTag = `h${currentLevel || 3}` as keyof JSX.IntrinsicElements;
+                  renderedElements.push(
+                    <HeadingTag key={currentGroup[0].id} className="article-heading">
+                      {content}
+                    </HeadingTag>
+                  );
+                } else if (currentType === 'list-item') {
+                  renderedElements.push(
+                    <li key={currentGroup[0].id} className="article-list-item">
+                      {content}
+                    </li>
+                  );
+                } else if (currentType === 'text') {
+                  renderedElements.push(
+                    <span key={currentGroup[0].id}>
+                      {content}
+                    </span>
+                  );
+                }
+                
+                currentGroup = [];
+              };
+              
               article.content.forEach((word, index) => {
-                // Skip if we already rendered this word as part of a phrase
-                if (index <= skipUntilIndex) return;
-
-                // Check if this is a multi-word phrase
-                if (word.phraseId && word.isBlurred) {
-                  // Collect all consecutive words with the same phraseId
-                  const phraseWords = [word];
-                  let nextIndex = index + 1;
-                  
-                  while (
-                    nextIndex < article.content.length &&
-                    article.content[nextIndex].phraseId === word.phraseId
-                  ) {
-                    phraseWords.push(article.content[nextIndex]);
-                    nextIndex++;
-                  }
-                  
-                  skipUntilIndex = nextIndex - 1;
-
-                  // Combine phrase words
-                  const phraseText = phraseWords.map(w => w.text).join(' ');
-                  const isBlurredAndHidden = word.isBlurred && !word.isRevealed;
-                  const isRevealing = revealingWordId === word.id;
-
-                  renderedElements.push(
-                    <span
-                      key={word.id}
-                      className={`word ${isBlurredAndHidden ? 'blurred' : ''} ${isRevealing ? 'revealing' : ''} ${word.isRevealed ? 'revealed' : ''}`}
-                      onClick={() => handleWordClick(word)}
-                      title={isBlurredAndHidden ? `${article.pricePerWord}` : ''}
-                    >
-                      {phraseText}
-                      {skipUntilIndex < article.content.length - 1 && ' '}
-                    </span>
-                  );
-                } else {
-                  // Single word
-                  const isBlurredAndHidden = word.isBlurred && !word.isRevealed;
-                  const isRevealing = revealingWordId === word.id;
-
-                  renderedElements.push(
-                    <span
-                      key={word.id}
-                      className={`word ${isBlurredAndHidden ? 'blurred' : ''} ${isRevealing ? 'revealing' : ''} ${word.isRevealed ? 'revealed' : ''}`}
-                      onClick={() => handleWordClick(word)}
-                      title={isBlurredAndHidden ? `${article.pricePerWord}` : ''}
-                    >
-                      {word.text}
-                      {index < article.content.length - 1 && ' '}
-                    </span>
-                  );
+                const nextWord = article.content[index + 1];
+                
+                // Handle structural elements
+                if (word.type === 'paragraph-break') {
+                  flushGroup();
+                  renderedElements.push(<br key={word.id} />);
+                  renderedElements.push(<br key={word.id + '-2'} />);
+                  return;
+                } else if (word.type === 'line-break') {
+                  flushGroup();
+                  renderedElements.push(<br key={word.id} />);
+                  return;
+                }
+                
+                // Check if we need to start a new group
+                if (word.type !== currentType || word.level !== currentLevel) {
+                  flushGroup();
+                  currentType = word.type || 'text';
+                  currentLevel = word.level;
+                }
+                
+                currentGroup.push(word);
+                
+                // Flush at the end
+                if (index === article.content.length - 1) {
+                  flushGroup();
                 }
               });
 
@@ -196,6 +257,11 @@ function App() {
           </div>
         </article>
       )}
+
+      {/* Disclaimer */}
+      <div className="disclaimer">
+        This content is for demonstration purposes only and does not constitute investment advice. Always conduct your own research before making any financial decisions.
+      </div>
     </div>
   );
 }

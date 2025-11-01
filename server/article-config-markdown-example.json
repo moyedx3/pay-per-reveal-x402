@@ -1,0 +1,18 @@
+{
+  "article": {
+    "id": "markdown-example",
+    "title": "Markdown Support Example",
+    "content": "### Introduction\n\nMarkdown support allows you to write **formatted** articles with proper structure. You can now use headings, lists, and line breaks!\n\n### Key Features\n\n- H3 Headings for section titles\n- Bullet points for lists\n- Paragraph breaks for better readability\n- All with blur functionality intact\n\n### How It Works\n\nThe **blockchain** technology enables secure transactions. Smart **contracts** automate processes without intermediaries.\n\n- **Bitcoin** was the first cryptocurrency\n- **Ethereum** introduced smart contracts\n- **DeFi** revolutionized finance\n\n### Technical Details\n\nWith **NFTs** and **Web3**, we're entering a new era of digital ownership.",
+    "blurredWords": [
+      "blockchain",
+      "contracts",
+      "Bitcoin",
+      "Ethereum",
+      "DeFi",
+      "NFTs",
+      "Web3"
+    ],
+    "pricePerWord": "$0.01"
+  }
+}
+

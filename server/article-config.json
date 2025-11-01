@@ -1,22 +1,54 @@
 {
-  "article": {
-    "id": "korean-blockchain-deep-dive",
-    "title": "블록체인과 웹3: 디지털 혁명의 시작",
-    "content": "블록체인 기술은 2008년 비트코인의 등장과 함께 세상에 처음 소개되었습니다. 이 혁신적인 기술은 중앙화된 시스템에 의존하지 않고도 신뢰할 수 있는 거래를 가능하게 만들었습니다. 탈중앙화된 원장 시스템을 통해 모든 참여자가 동일한 정보를 공유하며, 이는 투명성과 보안성을 동시에 제공합니다. 특히 암호화폐는 기존 금융 시스템의 한계를 극복하고 국경 없는 거래를 실현했습니다. 이더리움의 등장으로 스마트컨트랙트가 도입되면서 블록체인은 단순한 결제 수단을 넘어 프로그래밍 가능한 플랫폼으로 진화했습니다. 스마트컨트랙트는 코드로 작성된 자동 실행 계약으로, 중개자 없이도 복잡한 거래를 처리할 수 있습니다. NFT는 디지털 자산의 소유권과 희소성을 증명하는 새로운 방법을 제시했습니다. 예술가들은 NFT를 통해 자신의 작품을 직접 판매하고 로열티를 받을 수 있게 되었습니다. 웹3 생태계는 사용자가 자신의 데이터를 직접 소유하고 관리하는 인터넷의 새로운 패러다임을 제시합니다. 탈중앙화 금융인 디파이는 은행 없이도 대출, 예금, 투자를 가능하게 합니다. 메타버스와 블록체인의 결합은 가상 세계에서의 진정한 소유권을 실현합니다. DAO는 중앙 관리자 없이 커뮤니티가 직접 의사결정을 내리는 새로운 조직 형태입니다. 레이어2 솔루션들은 블록체인의 확장성 문제를 해결하며 더 빠르고 저렴한 거래를 가능하게 합니다. 미래에는 더 많은 산업이 블록체인 기술을 도입하여 공급망 관리, 의료 기록 관리, 투표 시스템 등에 활용될 것입니다. 블록체인은 단순한 기술이 아니라 신뢰, 투명성, 그리고 개인의 권리를 중심으로 한 새로운 사회 시스템의 기반이 될 것입니다.",
-    "blurredWords": [
-      "블록체인",
-      "비트코인",
-      "탈중앙화",
-      "암호화폐",
-      "이더리움",
-      "스마트컨트랙트",
-      "NFT",
-      "웹3",
-      "디파이",
-      "메타버스",
-      "DAO",
-      "레이어2"
-    ],
-    "pricePerWord": "$0.015"
-  }
+  "articles": [
+    {
+      "id": "project-alpha",
+      "title": "Hidden Alpha: 3 Projects That I'm Excited About",
+      "content": "### delta: Verifiable Internet Layer\n\n**delta** is a **verifiable layer for the internet** that lets any service add **shared state and guardrails** without changing its architecture. It flips the blockchain model: instead of forcing developers into fixed storage, gas limits, and public data, delta integrates like a **library** — keeping your stack, privacy, and web-speed performance intact while outcomes **settle with blockchain-grade guarantees**.\n\n**Why it matters:**\n\n- Works with any existing system — no rebuilds or new VMs\n- Adds verifiable trust and shared state to web and AI systems\n- Makes real-world apps provably correct without sacrificing speed or privacy\n\ndelta brings **verifiability to the web**, turning trust into a feature rather than a constraint.\n\n### numo: On-Chain FX Without Oracles\n\n**numo** is an **on-chain FX forward market** built purely from math, not price feeds. It uses a **YieldSpace AMM** where each currency behaves like a zero-coupon bond. The curve defines a **discount factor** for each currency, from which the market derives forward rates directly.\n\n**Why it matters:**\n\n- No oracles or centralized rate feeds\n- Yields generate natural FX pricing\n- Enables **trustless currency hedging** for businesses and DeFi protocols\n\n### street: Liquidity Layer for Private Equity\n\n**street** is building the **liquidity infrastructure for private equity**, aiming to unlock a **$15 trillion market** that's still opaque, illiquid, and broker-heavy. Its core innovation is the **ERC-S token standard** — an equity-anchored wrapper that turns startup shares into **standardized, compliant, and tradeable** digital instruments without making them securities.\n\n**Why it matters:**\n\n- Standardizes private equity exposure into transparent, liquid tokens\n- Reduces negotiation and legal friction through shared rule-sets\n- Introduces **spot prices, futures, and options** into the private equity space — tools every other financial market already has\n\nstreet's idea is simple but powerful: **liquidity isn't speculation, it's infrastructure**. By wrapping private assets into uniform tokens, street compresses spreads, concentrates liquidity, and makes startup equity tradable under consistent guardrails.",
+      "blurredWords": [
+        "delta",
+        "numo",
+        "YieldSpace AMM",
+        "street",
+        "ERC-S token standard"
+      ],
+      "pricePerWord": "$0.003"
+    },
+    {
+      "id": "invoice-factoring",
+      "title": "공급망 금융과 인보이스 팩토링 알아보기",
+      "content": "이번 주에는 온체인이 적용되기에 적합한 핀테크 산업 카테고리를 고민해보았다. 내가 상정한 자격 요건은 다음과 같다:\n\n**국경 간 거래:** 온체인의 장점은 국가 간 결제에서 더 잘 드러난다고 판단하였다.\n\n**B2B 거래:** UX보다는 비용 절감 측면이 더 매력적이라고 보았고, B2C보다는 비용 구조에 민감한 B2B에 온체인의 장점이 더 잘 적용된다고 판단하였다.\n\n**Settlement 속도 중요:** 계약 완료 시점부터 실제 정산까지의 시간이 중요한 산업일수록, 온체인의 ‘즉시 결제’ 특성이 더욱 빛날 수 있다고 보았다.\n\n이 기준을 바탕으로 선택한 카테고리는 **공급망 금융(Supply Chain Finance)**, 그중에서도 **인보이스 팩토링(Invoice Factoring)**이다.\n\n**인보이스 팩토링**은 기업이 미지급 송장을 제3자 금융기관에 할인된 가격에 판매하여, 빠르게 현금을 확보할 수 있게 해주는 기능이다. 기업은 현금흐름을 개선하고, 금융기관은 이후 실제 대금 수령을 통해 수익을 얻는다. 일반적으로 약 2.5%의 할인율이 적용되며, 지급 기간이 길어질수록 할인율은 높아진다.\n\n**이 분야에서 주목할 만한 기업들은 다음과 같다:**\n\n- **Loop:** 공급망 전반에 다양한 핀테크 기능을 제공하며, QuickPay라는 서비스를 통해 당일 지급을 지원하고 있다. J.P. Morgan과 파트너십을 맺고 있으며, 기술적으로는 팩토링보다는 선지급에 가깝다.\n- **Outgo:** 물류 업계에 특화된 팩토링 서비스를 제공한다. 고객은 미지급 송장을 업로드하고, Outgo는 당일 지급을 진행한다. TransPecos 은행과 제휴하여 팩토링, 대금 지급, 카드 발행을 통합 제공하고 있다.\n- **Fin2B:** 한국 기반의 공급망 금융 서비스 업체로, 유사한 기능을 제공하는 것으로 보인다. 하지만 당일 지급 구조가 어떻게 설계되어 있는지는 추가적인 정보가 필요하다.\n- **Raft, OpenEnvoy:** 현재는 인보이스 관리 SaaS에 집중하고 있으나, 장기적으로는 팩토링 기능까지 확장될 가능성이 있다고 판단된다.\n\n개인적으로는 **Outgo가 사용한 ‘Outgo Card’ 구조**가 매우 인상 깊었다. 물류 회사 입장에서는 스테이블코인으로 즉시 지급받고, 해당 자금을 카드로 바로 사용할 수 있다면 오프램프 없이 web2 수준의 UX를 제공받을 수 있다. 동시에 회사는 카드 사용 시 발생하는 **interchange fee**를 통해 추가 수익도 얻을 수 있다. 이를 구현할 수 있는 카드 인프라로는 **Rain**, **Cypher**, **Kast** 등이 있다.\n\n혹시 이러한 문제를 온체인 또는 스테이블코인을 통해 해결하고자 하거나, 관심을 가지고 있는 프로젝트나 사람을 알고 있다면 공유해주었으면 한다.",
+      "blurredWords": [
+        "Loop",
+        "Outgo",
+        "Fin2B",
+        "Raft",
+        "OpenEnvoy",
+        "Rain",
+        "Cypher",
+        "Kast"
+      ],
+      "pricePerWord": "$0.005"
+    },
+    {
+      "id": "stock-analysus",
+      "title": "Stock Analysis",
+      "content": "### Tidewater Inc. (Ticker: TDW)\n\n**Thesis**\n\n**Tidewater** is a quiet outperformer in the offshore energy space — providing vessels and marine logistics to global oil & gas operators. As offshore drilling rebounds, Tidewater's modernized fleet and disciplined capital structure make it one of the cleanest ways to play the multi-year energy capex recovery.\n\n**Key Strengths & Drivers**\n\n- **Revenue growth:** FY 2024 revenue hit **$1.22 B (+54% Y/Y)**, driven by rising day rates and vessel utilization at **~86%**, the highest since 2014.\n- **EBITDA margin:** Expanded from **28% → 43%** in the past 12 months, reflecting strong operating leverage.\n- **Balance sheet:** Net debt reduced to **$430 M**, with interest coverage **> 8×**.\n- **Fleet upgrades:** 179 active vessels across 30+ countries; 2025 utilization guidance raised to **90%** on deepwater demand in West Africa and Brazil.\n\n**Analyst View**\n\nOur model assumes **FY 2026 EPS = $9.20** and **EV/EBITDA = 8.5× → fair value ≈ $118**. If Brent averages above $85/bbl and global offshore spending grows 10–15%, upside extends toward **$140**. Tidewater's free cash flow yield (~11%) suggests potential dividend reinstatement in FY 2026.\n\n**Bottom line:** A pure-play offshore recovery bet — still underfollowed, but with multi-year tailwinds as oil majors shift back to long-cycle assets.\n\n### Kratos Defense & Security Solutions (Ticker: KTOS)\n\n**Thesis**\n\n**Kratos** is a mid-cap defense contractor focused on **unmanned aerial systems (UAS)**, tactical drones, and advanced propulsion. As global defense budgets rise and autonomous warfare becomes mainstream, Kratos is well-positioned to scale from prototype programs into full-rate production.\n\n**Key Strengths & Drivers**\n\n- **Revenue base:** FY 2024 revenue **$1.07 B (+16% Y/Y)**; backlog **$1.55 B**, up 20% Y/Y.\n- **UAS segment:** Now **~37%** of total revenue; Tactical Drone segment (XQ-58 Valkyrie, Air Wolf) pipeline exceeds **$2 B** potential over 3 years.\n- **Margins:** Adjusted EBITDA margin expanding toward **13%** (vs 9% in 2023) as higher-margin production mix scales.\n- **Government contracts:** Multi-year Air Force deal worth **$400 M** and Navy target drone extensions through 2028.\n\n**Analyst View**\n\nWe forecast **2026 EPS = $1.25**, implying **28× P/E** and fair value **≈ $35/share**. Bull case: UAS production ramps faster (15 → 30 units/month) → potential **$45** valuation. Kratos remains one of few public pure-plays on defense autonomy — a theme that could re-rate the sector.\n\n**Bottom line:** **KTOS** is a small-cap with big-cap relevance — a first mover in autonomous defense with tangible growth visibility.",
+      "blurredWords": [
+        "Tidewater",
+        "TDW",
+        "$9.20",
+        "8.5×",
+        "$118",
+        "$140",
+        "Kratos Defense & Security Solutions",
+        "Kratos",
+        "KTOS",
+        "$1.25",
+        "28× P/E",
+        "$35/share",
+        "$45"
+      ],
+      "pricePerWord": "$0.007"
+    }
+  ]
 }

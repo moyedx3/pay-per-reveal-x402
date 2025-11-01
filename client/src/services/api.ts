@@ -49,15 +49,20 @@ export const api = {
     return response.data;
   },
 
-  getArticle: async () => {
-    const response = await apiClient.get("/api/article", { headers: getHeaders() });
+  getArticles: async () => {
+    const response = await apiClient.get("/api/articles");
+    return response.data;
+  },
+
+  getArticle: async (index: number) => {
+    const response = await apiClient.get(`/api/article/${index}`, { headers: getHeaders() });
     return response.data;
   },
 
   // Paid endpoint - reveal a word
-  revealWord: async (wordId: string) => {
-    console.log(`💰 Paying to reveal word: ${wordId}...`);
-    const response = await apiClient.post(`/api/pay/reveal/${wordId}`, {}, { headers: getHeaders() });
+  revealWord: async (articleIndex: number, wordId: string) => {
+    console.log(`💰 Paying to reveal word: ${wordId} in article ${articleIndex}...`);
+    const response = await apiClient.post(`/api/pay/reveal/${articleIndex}/${wordId}`, {}, { headers: getHeaders() });
     console.log("✅ Word revealed:", response.data);
     return response.data;
   },
@@ -70,13 +75,25 @@ export interface ArticleWord {
   isBlurred: boolean;
   isRevealed: boolean;
   phraseId?: string;
+  type?: 'text' | 'heading' | 'list-item' | 'paragraph-break' | 'line-break';
+  level?: number;
 }
 
 export interface Article {
+  index: number;
   id: string;
   title: string;
   content: ArticleWord[];
   pricePerWord: string;
+}
+
+export interface ArticleMetadata {
+  index: number;
+  id: string;
+  title: string;
+  pricePerWord: string;
+  totalWords: number;
+  blurredWords: number;
 }
 
 export interface RevealResponse {
